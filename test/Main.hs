@@ -14,16 +14,15 @@ module Main (main) where
 import WebColor.Labels
 import Data.Word (Word8)
 import GHC.OverloadedLabels
-import Data.Proxy
 
 import Test.Tasty
 import Test.Tasty.HUnit
 
 instance IsWebColor "gold" where
-  webColorProxy _ k = k 255 215 0
+  webColorImplicit k = k 255 215 0
 
 instance IsWebColorAlpha "gold" where
-  webColorAlphaProxy _ k = k 255 215 0 255
+  webColorAlphaImplicit k = k 255 215 0 255
 
 data RGB = MkRGB Word8 Word8 Word8
   deriving (Show, Eq)
@@ -32,7 +31,7 @@ instance IsWebColor s => IsLabel s RGB where
 #if __GLASGOW_HASKELL__ >= 9101
   fromLabel = webColor s MkRGB
 #else
-  fromLabel = webColorProxy @s Proxy MkRGB
+  fromLabel = webColorImplicit @s MkRGB
 #endif
 
 data RGBA = MkRGBA Word8 Word8 Word8 Word8
@@ -42,7 +41,7 @@ instance IsWebColorAlpha s => IsLabel s RGBA where
 #if __GLASGOW_HASKELL__ >= 9101
   fromLabel = webColorAlpha s MkRGBA
 #else
-  fromLabel = webColorAlphaProxy @s Proxy MkRGBA
+  fromLabel = webColorAlphaImplicit @s MkRGBA
 #endif
 
 main :: IO ()

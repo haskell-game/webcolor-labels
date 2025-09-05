@@ -3,7 +3,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE CPP #-}
-#if __GLASGOW_HASKELL__ >= 9101
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+#if __GLASGOW_HASKELL__ >= 910
 {-# LANGUAGE RequiredTypeArguments #-}
 #endif
 
@@ -15,18 +17,20 @@ module WebColor.Labels
     WebColorAlpha,
     ParseWebColorAlpha,
     IsWebColor(..),
-#if __GLASGOW_HASKELL__ >= 9101
+#if __GLASGOW_HASKELL__ >= 910
     webColor,
 #endif
     IsWebColorAlpha(..),
-#if __GLASGOW_HASKELL__ >= 9101
+#if __GLASGOW_HASKELL__ >= 910
     webColorAlpha,
 #endif
     ParseChar,
   ) where
 
 import Data.Proxy (Proxy (..))
+#if __GLASGOW_HASKELL__ >= 906
 import Data.Type.Equality (type (~))
+#endif
 import Data.Word (Word8)
 import GHC.TypeLits
   (ErrorMessage (..), KnownNat, Nat, Symbol, TypeError, UnconsSymbol, natVal, type (*), type (+))
@@ -85,49 +89,47 @@ type family ParseRGBAColorWorker color where
 type a & b = a
 
 class IsWebColor s where
-  webColorProxy ::
-    Proxy s ->
+  webColorImplicit ::
     (Word8 & "red" -> Word8 & "green" -> Word8 & "blue" -> r) -> r
 
-#if __GLASGOW_HASKELL__ >= 9101
+#if __GLASGOW_HASKELL__ >= 910
 webColor ::
   forall s -> IsWebColor s =>
   (Word8 & "red" -> Word8 & "green" -> Word8 & "blue" -> r) -> r
-webColor s = webColorProxy @s Proxy
+webColor s = webColorImplicit @s
 #endif
 
 -- | Hacky instance to avoid a warning from GHC
 instance {-# OVERLAPPING #-} IsWebColor "red" where
-  webColorProxy _ k = k 255 0 0
+  webColorImplicit k = k 255 0 0
 
 instance {-# OVERLAPPABLE #-}
   ( ParseWebColor s ~ '(r, g, b),
     KnownNat r, KnownNat g, KnownNat b
   ) => IsWebColor s where
-  webColorProxy _ k =
+  webColorImplicit k =
       k `color` Proxy @r `color` Proxy @g `color` Proxy @b
 
 class IsWebColorAlpha s where
-  webColorAlphaProxy ::
-    Proxy s ->
+  webColorAlphaImplicit ::
     (Word8 & "red" -> Word8 & "green" -> Word8 & "blue" -> Word8 & "alpha" -> r) -> r
 
-#if __GLASGOW_HASKELL__ >= 9101
+#if __GLASGOW_HASKELL__ >= 910
 webColorAlpha ::
   forall s -> IsWebColorAlpha s =>
   (Word8 & "red" -> Word8 & "green" -> Word8 & "blue" -> Word8 & "alpha" -> r) -> r
-webColorAlpha s = webColorAlphaProxy @s Proxy
+webColorAlpha s = webColorAlphaImplicit @s
 #endif
 
 -- | Hacky instance to avoid a warning from GHC
 instance {-# OVERLAPPING #-} IsWebColorAlpha "red" where
-  webColorAlphaProxy _ k = k 255 0 0 255
+  webColorAlphaImplicit k = k 255 0 0 255
 
 instance {-# OVERLAPPABLE #-}
   ( ParseWebColorAlpha s ~ '(r, g, b, a),
     KnownNat r, KnownNat g, KnownNat b, KnownNat a
   ) => IsWebColorAlpha s where
-  webColorAlphaProxy _ k =
+  webColorAlphaImplicit k =
       k `color` Proxy @r `color` Proxy @g `color` Proxy @b `color` Proxy @a
 
 color :: KnownNat n => (Word8 -> r) -> Proxy n -> r
