@@ -19,19 +19,19 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 instance IsWebColor "gold" where
-  webColorImplicit k = k 255 215 0
+  webColor k = k 255 215 0
 
 instance IsWebColorAlpha "gold" where
-  webColorAlphaImplicit k = k 255 215 0 255
+  webColorAlpha k = k 255 215 0 255
 
 data RGB = MkRGB Word8 Word8 Word8
   deriving (Show, Eq)
 
 instance IsWebColor s => IsLabel s RGB where
 #if __GLASGOW_HASKELL__ >= 9101
-  fromLabel = webColor s MkRGB
+  fromLabel = webColor' s MkRGB
 #else
-  fromLabel = webColorImplicit @s MkRGB
+  fromLabel = webColor @s MkRGB
 #endif
 
 data RGBA = MkRGBA Word8 Word8 Word8 Word8
@@ -39,9 +39,9 @@ data RGBA = MkRGBA Word8 Word8 Word8 Word8
 
 instance IsWebColorAlpha s => IsLabel s RGBA where
 #if __GLASGOW_HASKELL__ >= 9101
-  fromLabel = webColorAlpha s MkRGBA
+  fromLabel = webColorAlpha' s MkRGBA
 #else
-  fromLabel = webColorAlphaImplicit @s MkRGBA
+  fromLabel = webColorAlpha @s MkRGBA
 #endif
 
 main :: IO ()
