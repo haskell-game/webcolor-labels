@@ -1,15 +1,10 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE CPP #-}
-
-#if __GLASGOW_HASKELL__ >= 9101
-{-# LANGUAGE RequiredTypeArguments #-}
-#endif
-
-{-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE BlockArguments #-}
 
-module Main (main) where
+{-# OPTIONS_GHC -Wno-orphans #-}
+
+module Main (main, gold, transparentPurple, red) where
 
 import WebColor.Labels
 import Data.Word (Word8)
@@ -28,21 +23,13 @@ data RGB = MkRGB Word8 Word8 Word8
   deriving (Show, Eq)
 
 instance IsWebColor s => IsLabel s RGB where
-#if __GLASGOW_HASKELL__ >= 9101
-  fromLabel = webColor' s MkRGB
-#else
   fromLabel = webColor @s MkRGB
-#endif
 
 data RGBA = MkRGBA Word8 Word8 Word8 Word8
   deriving (Show, Eq)
 
 instance IsWebColorAlpha s => IsLabel s RGBA where
-#if __GLASGOW_HASKELL__ >= 9101
-  fromLabel = webColorAlpha' s MkRGBA
-#else
   fromLabel = webColorAlpha @s MkRGBA
-#endif
 
 main :: IO ()
 main = defaultMain $ testGroup "Tests"
@@ -103,3 +90,30 @@ main = defaultMain $ testGroup "Tests"
 
     rgba :: RGBA -> RGBA -> Assertion
     rgba = (@?=)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+transparentPurple :: RGBA
+transparentPurple = #840384c3
+
+gold :: RGBA
+gold = #ffd700
+
+red :: RGBA
+red = #f00

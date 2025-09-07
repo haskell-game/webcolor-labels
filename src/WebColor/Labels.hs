@@ -5,39 +5,167 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
-#if __GLASGOW_HASKELL__ >= 910
-{-# LANGUAGE RequiredTypeArguments #-}
-#endif
+-- We need this to have correct links inside haddocks
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+
+
+{- |
+= Introduction and intended usage
+
+This library contains a small number of helpers that primarily aim
+to help users construct `IsLabel` instances to use @-XOverloadedLabels@
+syntax to construct their color types using widely known web color syntax.
+
+There are two ways to use this API:
+
+1. Simple type-class-based API
+
+2. Advanced manual type-family-based API
+
+You should always prefer the simple API.
+
+== Simple API
+
+You should use the simple API to write an `IsLabel` instance for your own
+type representing a color.
+
+Depending on whether your type supports representing the alpha channel, you should
+choose between `IsWebColor` and `IsWebColorAlpha` type classes.
+
+Therefore, it's likely that you want to write an instance that looks like this:
+
+@
+data RGBA = MkRGBA { red :: `Word8`, green :: `Word8`, blue :: `Word8`, alpha :: `Word8` }
+
+instance `IsWebColorAlpha` s => `IsLabel` s RGBA where
+  `fromLabel` = `webColorAlpha` @s \r g b a ->
+      MkRGBA { red = r, green = g, blue = b, alpha = a }
+@
+
+Or this in case your type doesn't have an alpha channel:
+
+@
+data RGB = MkRGB { red :: `Word8`, green :: `Word8`, blue :: `Word8` }
+
+instance `IsWebColor` s => `IsLabel` s RGB where
+  `fromLabel` = `webColor` @s \r g b ->
+      MkRGB { red = r, green = g, blue = b }
+@
+
+Please do not try to use `IsWebColor` if your type can represent either
+RGB or RGBA colors; use `IsWebColorAlpha` and alternate data construction
+depending on the value of the alpha channel:
+
+@
+data Color
+  = MkRGB { red :: `Word8`, green :: `Word8`, blue :: `Word8` }
+  | MkRGBA { red :: `Word8`, green :: `Word8`, blue :: `Word8`, alpha :: `Word8` }
+
+instance `IsWebColorAlpha` s => `IsLabel` s RGBA where
+  `fromLabel` = `webColorAlpha` @s \r g b a ->
+      if a `==` 255
+        then MkRGB { red = r, green = g, blue = b }
+        else MkRGBA { red = r, green = g, blue = b, alpha = a }
+@
+
+== Advanced API
+
+It's always recommended to use the simple API unless you want to drop
+named colors for some reason or want to work with raw `KnownNat`s.
+
+There are four main type families:
+
+* `ParseWebColor`
+* `ParseWebColorAlpha`
+* `ParseWebColorMaybeAlpha`
+* `ParseHexadecimalColor`
+
+The first two correspond to the output of `IsWebColor` and `IsWebColorAlpha` type
+classes listed in the previous section.
+
+`ParseWebColorMaybeAlpha` allows you to alternate behavior between presence and
+absence of the alpha channel in the input. Please let me know if you have a use case
+for this and why you can't simply consider 255 alpha as an RGB color.
+
+`ParseHexadecimalColor` converts hexadecimal strings of length 3, 4, 6, and 8 into
+correct color channels but doesn't accept named colors.
+
+In general, you give a parsing function a symbol argument and match results using the equality
+operator:
+
+@
+f :: `ParseWebColorAlpha` s ~ '(r,g,b,a) => ...
+@
+
+After that, you can set various constraints on the results. For example, this is how you can
+convert given values into a 32-bit number without any runtime computations:
+
+@
+{-# LANGUAGE DataKinds, NoStarIsType, AllowAmbiguousTypes #-}
+
+f ::  forall s r g b a w32.
+      `ParseWebColorAlpha` s ~ '(r,g,b,a) =>
+      ((r * 0x100 + g) * 0x100 + b) * 0x100 + a ~ w32 =>
+      `KnownNat` w32 => `Word32`
+f = `fromInteger` `$` `natVal` (`Proxy` @w32)
+@
+
+== To advanced end users
+
+If you're an advanced Haskell user. If you think that rules are just "recommendations."
+If you're ready to face possible breakages just for slight usability improvements.
+Then I present you a footgun.
+
+It is possible to write orphan instances for `IsWebColor` and `IsWebColorAlpha` type classes
+to extend #-syntax with custom named colors, just like this:
+
+@
+instance `IsWebColor` "gold" where
+  `webColor` k = k 255 215 0
+
+instance `IsWebColorAlpha` "gold" where
+  `webColorAlpha` k = k 255 215 0 255
+@
+
+I'm not going to guarantee you anything. Enjoy!
+-}
 
 module WebColor.Labels
-  ( WebColorParsed,
-    ParseWebColorMaybeAlpha,
-    WebColor,
-    ParseWebColor,
-    WebColorAlpha,
-    ParseWebColorAlpha,
+  ( -- * Primary API
     IsWebColor(..),
-#if __GLASGOW_HASKELL__ >= 910
-    webColor',
-#endif
     IsWebColorAlpha(..),
-#if __GLASGOW_HASKELL__ >= 910
-    webColorAlpha',
-#endif
-    ParseChar,
+    -- * Advanced type-level API
+    WebColor,
+    WebColorAlpha,
+    ParseWebColor,
+    ParseWebColorAlpha,
+    WebColorParsed,
+    ParseWebColorMaybeAlpha,
+    ParseHexadecimalColor,
+    -- * Utility type families
+    --
+    -- | These type families aren't required to use
+    -- the library, but may be useful for defining your
+    -- own parse routing on top of web colors
+    ParseHexadecimalChar,
   ) where
 
 import Data.Proxy (Proxy (..))
 #if __GLASGOW_HASKELL__ >= 906
 import Data.Type.Equality (type (~))
 #endif
-import Data.Word (Word8)
+import Data.Word (Word8, Word32)
 import GHC.TypeLits
   (ErrorMessage (..), KnownNat, Nat, Symbol, TypeError, UnconsSymbol, natVal, type (*), type (+))
-import Prelude (Char, Maybe (..), fromIntegral, ($!))
+import Prelude (Char, Maybe (..), fromInteger, ($!), ($), (==))
+import Data.Kind (Constraint)
+
+-- Imports for haddocks
+import GHC.OverloadedLabels (IsLabel(..))
 
 type WebColorParsed = (Nat, Nat, Nat, Maybe Nat)
 
+-- |
 type ParseWebColorMaybeAlpha :: Symbol -> WebColorParsed
 type family ParseWebColorMaybeAlpha s where
   ParseWebColorMaybeAlpha "white"   = '(255, 255, 255, Nothing)
@@ -56,12 +184,16 @@ type family ParseWebColorMaybeAlpha s where
   ParseWebColorMaybeAlpha "navy"    = '(0,   0,   128, Nothing)
   ParseWebColorMaybeAlpha "fuchsia" = '(255, 0,   255, Nothing)
   ParseWebColorMaybeAlpha "purple"  = '(128, 0,   128, Nothing)
-  ParseWebColorMaybeAlpha s = ParseColorRec '[] (UnconsSymbol s)
+  ParseWebColorMaybeAlpha s = ParseHexadecimalColor s
+
+type ParseHexadecimalColor :: Symbol -> WebColorParsed
+type family ParseHexadecimalColor s where
+  ParseHexadecimalColor s = ParseColorRec '[] (UnconsSymbol s)
 
 type ParseColorRec :: [Nat] -> Maybe (Char, Symbol) -> WebColorParsed
 type family ParseColorRec color str where
   ParseColorRec colors Nothing = UpgradeColor colors
-  ParseColorRec colors (Just '(ch, t)) = ParseColorRec (ParseChar ch : colors) (UnconsSymbol t)
+  ParseColorRec colors (Just '(ch, t)) = ParseColorRec (ParseHexadecimalChar ch : colors) (UnconsSymbol t)
 
 type WebColor = (Nat, Nat, Nat)
 
@@ -88,21 +220,16 @@ type family ParseRGBAColorWorker color where
 
 type a & b = a
 
+type IsWebColor :: Symbol -> Constraint
 class IsWebColor s where
   webColor ::
     (Word8 & "red" -> Word8 & "green" -> Word8 & "blue" -> r) -> r
-
-#if __GLASGOW_HASKELL__ >= 910
-webColor' ::
-  forall s -> IsWebColor s =>
-  (Word8 & "red" -> Word8 & "green" -> Word8 & "blue" -> r) -> r
-webColor' s = webColor @s
-#endif
 
 -- | Hacky instance to avoid a warning from GHC
 instance {-# OVERLAPPING #-} IsWebColor "red" where
   webColor k = k 255 0 0
 
+-- | Main instance where all the magic happens
 instance {-# OVERLAPPABLE #-}
   ( ParseWebColor s ~ '(r, g, b),
     KnownNat r, KnownNat g, KnownNat b
@@ -110,21 +237,16 @@ instance {-# OVERLAPPABLE #-}
   webColor k =
       k `color` Proxy @r `color` Proxy @g `color` Proxy @b
 
+type IsWebColorAlpha :: Symbol -> Constraint
 class IsWebColorAlpha s where
   webColorAlpha ::
     (Word8 & "red" -> Word8 & "green" -> Word8 & "blue" -> Word8 & "alpha" -> r) -> r
-
-#if __GLASGOW_HASKELL__ >= 910
-webColorAlpha' ::
-  forall s -> IsWebColorAlpha s =>
-  (Word8 & "red" -> Word8 & "green" -> Word8 & "blue" -> Word8 & "alpha" -> r) -> r
-webColorAlpha' s = webColorAlphaImplicit @s
-#endif
 
 -- | Hacky instance to avoid a warning from GHC
 instance {-# OVERLAPPING #-} IsWebColorAlpha "red" where
   webColorAlpha k = k 255 0 0 255
 
+-- | Main instance where all the magic happens
 instance {-# OVERLAPPABLE #-}
   ( ParseWebColorAlpha s ~ '(r, g, b, a),
     KnownNat r, KnownNat g, KnownNat b, KnownNat a
@@ -133,7 +255,7 @@ instance {-# OVERLAPPABLE #-}
       k `color` Proxy @r `color` Proxy @g `color` Proxy @b `color` Proxy @a
 
 color :: KnownNat n => (Word8 -> r) -> Proxy n -> r
-color k p = k $! fromIntegral (natVal p)
+color k p = k $! fromInteger (natVal p)
 
 type UpgradeColor :: [Nat] -> WebColorParsed
 type family UpgradeColor nats where
@@ -143,31 +265,33 @@ type family UpgradeColor nats where
   UpgradeColor [a1, a2, b1, b2, g1, g2, r1, r2] = '(MakeByte r2 r1, MakeByte g2 g1, MakeByte b2 b1, Just (MakeByte a2 a1))
   UpgradeColor _ = TypeError (Text "Unexpected number of hex codes" :$$: Text "expected 3, 4, 6 or 8")
 
-type ParseChar :: Char -> Nat
-type family ParseChar ch where
-  ParseChar '0' = 0x0
-  ParseChar '1' = 0x1
-  ParseChar '2' = 0x2
-  ParseChar '3' = 0x3
-  ParseChar '4' = 0x4
-  ParseChar '5' = 0x5
-  ParseChar '6' = 0x6
-  ParseChar '7' = 0x7
-  ParseChar '8' = 0x8
-  ParseChar '9' = 0x9
-  ParseChar 'a' = 0xa
-  ParseChar 'b' = 0xb
-  ParseChar 'c' = 0xc
-  ParseChar 'd' = 0xd
-  ParseChar 'e' = 0xe
-  ParseChar 'f' = 0xf
-  ParseChar 'A' = 0xA
-  ParseChar 'B' = 0xB
-  ParseChar 'C' = 0xC
-  ParseChar 'D' = 0xD
-  ParseChar 'E' = 0xE
-  ParseChar 'F' = 0xF
-  ParseChar ch  = TypeError (Text "Unable to recognize a character: " :$$: ShowType ch)
+-- | Convert a hexadecimal character (0 .. F) into a corresponging
+-- number. Case insensitive.
+type ParseHexadecimalChar :: Char -> Nat
+type family ParseHexadecimalChar ch where
+  ParseHexadecimalChar '0' = 0x0
+  ParseHexadecimalChar '1' = 0x1
+  ParseHexadecimalChar '2' = 0x2
+  ParseHexadecimalChar '3' = 0x3
+  ParseHexadecimalChar '4' = 0x4
+  ParseHexadecimalChar '5' = 0x5
+  ParseHexadecimalChar '6' = 0x6
+  ParseHexadecimalChar '7' = 0x7
+  ParseHexadecimalChar '8' = 0x8
+  ParseHexadecimalChar '9' = 0x9
+  ParseHexadecimalChar 'a' = 0xa
+  ParseHexadecimalChar 'b' = 0xb
+  ParseHexadecimalChar 'c' = 0xc
+  ParseHexadecimalChar 'd' = 0xd
+  ParseHexadecimalChar 'e' = 0xe
+  ParseHexadecimalChar 'f' = 0xf
+  ParseHexadecimalChar 'A' = 0xA
+  ParseHexadecimalChar 'B' = 0xB
+  ParseHexadecimalChar 'C' = 0xC
+  ParseHexadecimalChar 'D' = 0xD
+  ParseHexadecimalChar 'E' = 0xE
+  ParseHexadecimalChar 'F' = 0xF
+  ParseHexadecimalChar ch  = TypeError (Text "Unable to recognize a character: " :$$: ShowType ch)
 
 type MakeByte :: Nat -> Nat -> Nat
 type family MakeByte x y where

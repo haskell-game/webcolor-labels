@@ -13,18 +13,39 @@
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [overlay];
+        };
+
+        overlay = _: prev: {
+          haskell = prev.haskell // {
+            packages = pkgs.lib.mapAttrs overrideHaskellPackages prev.haskell.packages;
+          };
+        };
+
+        overrideHaskellPackages = _: hp: hp.override {
+          overrides = _: _: {
+            "${packageName}" = hp.callCabal2nix packageName self {};
+          };
+        };
 
         haskellPackages = pkgs.haskellPackages;
 
         packageName = "webcolor-labels";
-      in {
-        packages.${packageName} =
-          haskellPackages.callCabal2nix packageName self {
-            # Dependency overrides go here
-          };
 
-        packages."${packageName}-dist" =
+        mkPackage = _: hp: { "${packageName}" = hp."${packageName}";};
+      in {
+
+
+
+        packages = pkgs.lib.mapAttrs mkPackage pkgs.haskell.packages // {
+
+          "${packageName}" = haskellPackages."${packageName}";
+
+          default = self.packages.${system}."${packageName}";
+
+          "${packageName}-dist" =
           with pkgs.haskell.lib;
           let distPackage = self.packages.${system}.default;
           in pkgs.runCommand "pack-${packageName}-dist" {} ''
@@ -33,8 +54,8 @@
             cp -r ${sdistTarball distPackage}/${distPackage.name}.tar.gz $out/packages
             cp -r ${documentationTarball distPackage}/${distPackage.name}-docs.tar.gz $out/docs
           '';
+        };
 
-        packages.default = self.packages.${system}.${packageName};
         defaultPackage = self.packages.${system}.default;
 
         devShells.default = pkgs.mkShell {
@@ -44,7 +65,7 @@
             cabal-install
             haskellPackages.cabal-fmt
           ];
-          inputsFrom = map (__getAttr "env") (__attrValues self.packages.${system});
+          inputsFrom = [ self.defaultPackage.${system}.env ];
         };
         devShell = self.devShells.${system}.default;
       });

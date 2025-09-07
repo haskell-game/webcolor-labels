@@ -2,6 +2,8 @@
 
 Zero-dependency, plug-and-play library that enables #hex-color syntax for your own types!
 
+![Demo image](images/demo.png)
+
 ## Motivation
 
 [Unrestricted OverloadedLabels syntax](https://github.com/ghc-proposals/ghc-proposals/blob/master/proposals/0170-unrestricted-overloadedlabels.rst) was implemented in GHC 9.6.1. It isn't hard to notice
