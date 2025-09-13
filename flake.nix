@@ -24,6 +24,16 @@
             # Dependency overrides go here
           };
 
+        packages."${packageName}-dist" =
+          with pkgs.haskell.lib;
+          let distPackage = self.packages.${system}.default;
+          in pkgs.runCommand "pack-${packageName}-dist" {} ''
+            mkdir $out
+            mkdir -m 777 $out/packages $out/docs
+            cp -r ${sdistTarball distPackage}/${distPackage.name}.tar.gz $out/packages
+            cp -r ${documentationTarball distPackage}/${distPackage.name}-docs.tar.gz $out/docs
+          '';
+
         packages.default = self.packages.${system}.${packageName};
         defaultPackage = self.packages.${system}.default;
 
