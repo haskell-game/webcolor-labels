@@ -14,10 +14,16 @@ version:         0.1.0.0
 
 -- A short (one-line) description of the package.
 synopsis:
-  Plug-n-play #hex color syntax
+  Plug-n-play #hex-syntax for your colors
 
 -- A longer description of the package.
--- description:
+description:
+  This library contains a small number of helpers that primarily aim
+  to help users construct `IsLabel` instances to use @-XOverloadedLabels@
+  syntax to construct their color types using widely known web color syntax.
+
+  Plug this library into your code, enable OverloadedLabels and use
+  #fff, #1212bc44, and even #fuchsia to create colors.
 
 license:         MPL-2.0
 license-file:    LICENSE
@@ -29,13 +35,9 @@ maintainer:      root@sandwitch.dev
 category:        Graphics
 build-type:      Simple
 
--- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
-extra-doc-files: CHANGELOG.md
+extra-doc-files: CHANGELOG.md README.md
 
 tested-with: GHC ==9.12.2 || ==9.10.2 || ==9.8.4
-
--- Extra source files to be distributed with the package, such as examples, or a tutorial module.
--- extra-source-files:
 
 common warnings
   ghc-options: -Wall
