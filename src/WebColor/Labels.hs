@@ -8,6 +8,8 @@
 -- We need this to have correct links inside haddocks
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
+-- Required to use `showType` inside haddock coments
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 {- |
 = Introduction and intended usage
@@ -163,9 +165,37 @@ import Data.Kind (Constraint)
 -- Imports for haddocks
 import GHC.OverloadedLabels (IsLabel(..))
 
+#if __GLASGOW_HASKELL__ >= 908
+import GHC.TypeError (Unsatisfiable)
+
+showType :: forall a. (Unsatisfiable (ShowType a)) => ()
+showType = ()
+#endif
+
+-- | Red, green, blue, and optional alpha color channels in range from 0 to 255
 type WebColorParsed = (Nat, Nat, Nat, Maybe Nat)
 
--- |
+-- | Parse a string containing a named color from a basic
+-- palette or hexadecimal representation with an optional
+-- alpha channel.
+--
+-- * Named colors are always considered RGB-only:
+--
+-- >>> showType @(`ParseWebColorMaybeAlpha` "red")
+-- '(255, 0, 0, 'Nothing)
+--
+-- >>> showType @(`ParseWebColorMaybeAlpha` "silver")
+-- '(192, 192, 192, 'Nothing)
+--
+-- `ParseWebColorMaybeAlpha` inherits many properties from `ParseHexadecimalColor`:
+--
+-- * The difference between a `Nothing` alpha channel and @`Just` 255@
+--   is purely syntactical, and you have to tackle the difference yourself
+-- * This family automatically handles shortened syntax
+-- * This family throws a compile-time error when the wrong number
+--   of hex characters is supplied
+--
+-- Please refer to `ParseHexadecimalColor` for the examples.
 type ParseWebColorMaybeAlpha :: Symbol -> WebColorParsed
 type family ParseWebColorMaybeAlpha s where
   ParseWebColorMaybeAlpha "white"   = '(255, 255, 255, Nothing)
@@ -186,6 +216,47 @@ type family ParseWebColorMaybeAlpha s where
   ParseWebColorMaybeAlpha "purple"  = '(128, 0,   128, Nothing)
   ParseWebColorMaybeAlpha s = ParseHexadecimalColor s
 
+-- | Parse a string containing hexadecimal representation of a
+-- color with an optional alpha channel.
+--
+-- * This family doesn't handle named colors.
+-- * The difference between a `Nothing` alpha channel and @`Just` 255@
+--   is purely syntactical, and you have to tackle the difference yourself:
+--
+-- >>> showType @(`ParseHexadecimalColor` "fafefb")
+-- '(250, 254, 251, 'Nothing)
+--
+-- >>> showType @(`ParseHexadecimalColor` "fafefbff")
+-- '(250, 254, 251, 'Just 255)
+--
+-- * This family automatically handles shortened syntax:
+--
+-- E.g. #123 is the same as #112233:
+--
+-- >>> showType @(`ParseHexadecimalColor` "123")
+-- '(17, 34, 51, 'Nothing)
+--
+-- >>> showType @(`ParseHexadecimalColor` "112233")
+-- '(17, 34, 51, 'Nothing)
+--
+-- The same applies to #1234 and #11223344:
+--
+-- >>> showType @(`ParseHexadecimalColor` "1234")
+-- '(17, 34, 51, 'Just 68)
+--
+-- >>> showType @(`ParseHexadecimalColor` "11223344")
+-- '(17, 34, 51, 'Just 68)
+--
+-- * This family throws a compile-time error when the wrong number
+-- of hex characters is supplied:
+--
+-- >>> showType @(`ParseHexadecimalColor` "1")
+-- Unexpected number of hex codes
+-- expected 3, 4, 6 or 8
+--
+-- >>> showType @(`ParseHexadecimalColor` "1122334455")
+-- Unexpected number of hex codes
+-- expected 3, 4, 6 or 8
 type ParseHexadecimalColor :: Symbol -> WebColorParsed
 type family ParseHexadecimalColor s where
   ParseHexadecimalColor s = ParseColorRec '[] (UnconsSymbol s)
@@ -195,8 +266,36 @@ type family ParseColorRec color str where
   ParseColorRec colors Nothing = UpgradeColor colors
   ParseColorRec colors (Just '(ch, t)) = ParseColorRec (ParseHexadecimalChar ch : colors) (UnconsSymbol t)
 
+-- | Red, green, and blue color channels in range from 0 to 255
 type WebColor = (Nat, Nat, Nat)
 
+-- | Parse a string containing a named color from a basic
+-- palette or hexadecimal representation without an alpha channel.
+--
+-- * For convenience, a 255 alpha channel is interpreted
+--   as a solid color without an alpha channel:
+--
+-- >>> showType @(`ParseWebColor` "123")
+-- '(17, 34, 51)
+--
+-- >>> showType @(`ParseWebColor` "123f")
+-- '(17, 34, 51)
+--
+-- * Other alpha channel values result in a compile-time error:
+--
+-- >>> showType @(`ParseWebColor` "123d")
+-- Unexpected alpha channel! RGB color expected
+--
+-- This family inherits many properties from `ParseWebColorMaybeAlpha`:
+--
+-- * Named colors are always considered RGB-only:
+--
+-- >>> showType @(`ParseWebColor` "red")
+-- '(255, 0, 0)
+--
+-- * This family automatically handles shortened syntax.
+-- * This family throws a compile-time error when the wrong number
+--   of hex characters is supplied
 type ParseWebColor :: Symbol -> WebColor
 type family ParseWebColor s where
   ParseWebColor s = ParseRGBColorWorker (ParseWebColorMaybeAlpha s)
@@ -207,8 +306,29 @@ type family ParseRGBColorWorker color where
   ParseRGBColorWorker '(r, g, b, Just 255) = '(r, g, b)
   ParseRGBColorWorker '(_, _, _, Just _) = TypeError (Text "Unexpected alpha channel! RGB color expected")
 
+-- | Red, green, blue, and alpha color channels in range from 0 to 255
 type WebColorAlpha = (Nat, Nat, Nat, Nat)
 
+-- | Parse a string containing a named color from a basic
+-- palette or a hexadecimal representation with an optional
+-- alpha channel.
+--
+-- * This family converts an absence of an alpha channel into
+--   the 255 value.
+--
+-- >>> showType @(`ParseWebColorAlpha` "123")
+-- '(17, 34, 51, 255)
+--
+-- This family inherits many properties from `ParseWebColorMaybeAlpha`:
+--
+-- * Named colors are always considered RGB-only and are handled the same way:
+--
+-- >>> showType @(`ParseWebColorAlpha` "red")
+-- '(255, 0, 0, 255)
+--
+-- * This family automatically handles shortened syntax.
+-- * This family throws a compile-time error when the wrong number
+--   of hex characters is supplied
 type ParseWebColorAlpha :: Symbol -> WebColorAlpha
 type family ParseWebColorAlpha s where
   ParseWebColorAlpha s = ParseRGBAColorWorker (ParseWebColorMaybeAlpha s)
@@ -220,8 +340,35 @@ type family ParseRGBAColorWorker color where
 
 type a & b = a
 
+-- | Parse a type-level string containing a named color from a basic
+-- palette or a hexadecimal representation and convert it into three
+-- bytes representing red, green, and blue channels
+--
+--
+-- * For convenience, a 255 alpha channel is interpreted
+--   as a solid color without an alpha channel:
+--
+-- >>> webColor @"123" (,,)
+-- (17,34,51)
+--
+-- >>> webColor @"123f" (,,)
+-- (17,34,51)
+--
+-- * Other alpha channel values result in a compile-time error:
+--
+-- >>> webColor @"123d" (,,)
+-- Unexpected alpha channel! RGB color expected
+--
+-- * Named colors are always considered RGB-only:
+--
+-- >>> webColor @"red" (,,)
+-- (255,0,0)
 type IsWebColor :: Symbol -> Constraint
 class IsWebColor s where
+  -- | Parse a type-level string and give you bytes representing
+  -- red, green, and blue colors.
+  --
+  -- NB: @&@ is just a type alias that should help to keep with order.
   webColor ::
     (Word8 & "red" -> Word8 & "green" -> Word8 & "blue" -> r) -> r
 
@@ -237,8 +384,29 @@ instance {-# OVERLAPPABLE #-}
   webColor k =
       k `color` Proxy @r `color` Proxy @g `color` Proxy @b
 
+-- | Parse a type-level string containing a named color from a basic
+-- palette or a hexadecimal representation and convert it into four
+-- bytes representing red, green, blue, and alpha channels
+--
+--
+-- * An absent alpha channel  get converted into the 255 value:
+--
+-- >>> webColorAlpha @"123" (,,,)
+-- (17,34,51,255)
+--
+-- >>> webColorAlpha @"123f" (,,,)
+-- (17,34,51,255)
+--
+-- * Named colors are always considered RGB-only:
+--
+-- >>> webColorAlpha @"red" (,,,)
+-- (255,0,0,255)
 type IsWebColorAlpha :: Symbol -> Constraint
 class IsWebColorAlpha s where
+  -- | Parse a type-level string and give you bytes representing
+  -- red, green, blue, and alpha colors.
+  --
+  -- NB: @&@ is just a type alias that should help to keep with order.
   webColorAlpha ::
     (Word8 & "red" -> Word8 & "green" -> Word8 & "blue" -> Word8 & "alpha" -> r) -> r
 

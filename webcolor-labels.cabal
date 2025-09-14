@@ -13,8 +13,7 @@ name:            webcolor-labels
 version:         0.1.0.0
 
 -- A short (one-line) description of the package.
-synopsis:
-  Plug-n-play #hex-syntax for your colors
+synopsis:        Plug-n-play #hex-syntax for your colors
 
 -- A longer description of the package.
 description:
@@ -27,17 +26,24 @@ description:
 
 license:         MPL-2.0
 license-file:    LICENSE
-author:          Andrei Borzenkov
-maintainer:      root@sandwitch.dev
+author:          Andrei Borzenkov <me@sandwitch.dev>
+maintainer:      me@sandwitch.dev
+homepage:        https://github.com/haskell-game/webcolor-labels
+bug-reports:     https://github.com/haskell-game/webcolor-labels/issues
 
 -- A copyright notice.
 -- copyright:
 category:        Graphics
 build-type:      Simple
+extra-doc-files:
+  CHANGELOG.md
+  README.md
 
-extra-doc-files: CHANGELOG.md README.md
+tested-with:     GHC ==9.8.4 || ==9.10.2 || ==9.12.2
 
-tested-with: GHC ==9.12.2 || ==9.10.2 || ==9.8.4
+source-repository head
+  type:     git
+  location: https://github.com/haskell-game/webcolor-labels/
 
 common warnings
   ghc-options: -Wall
@@ -45,7 +51,7 @@ common warnings
 library
   import:           warnings
   exposed-modules:  WebColor.Labels
-  build-depends:    base >=4.16.0.0 && < 5.0.0.0
+  build-depends:    base >=4.16.0.0 && <5.0.0.0
   hs-source-dirs:   src
   default-language: GHC2021
 

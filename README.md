@@ -2,7 +2,7 @@
 
 Zero-dependency, plug-and-play library that enables #hex-color syntax for your own types!
 
-![Demo image](images/demo.png)
+![Demo image](https://raw.githubusercontent.com/haskell-game/webcolor-labels/refs/heads/master/images/demo.png)
 
 ## Motivation
 

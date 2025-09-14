@@ -4,7 +4,7 @@
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Main (main, gold, transparentPurple, red) where
+module Main (main) where
 
 import WebColor.Labels
 import Data.Word (Word8)
@@ -90,30 +90,3 @@ main = defaultMain $ testGroup "Tests"
 
     rgba :: RGBA -> RGBA -> Assertion
     rgba = (@?=)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-transparentPurple :: RGBA
-transparentPurple = #840384c3
-
-gold :: RGBA
-gold = #ffd700
-
-red :: RGBA
-red = #f00
