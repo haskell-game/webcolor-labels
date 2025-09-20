@@ -37,7 +37,7 @@
         mkPackage = _: hp: { "${packageName}" = hp."${packageName}";};
       in {
 
-
+        overlays.default = overlay;
 
         packages = pkgs.lib.mapAttrs mkPackage pkgs.haskell.packages // {
 
