@@ -84,6 +84,10 @@ No, if each instance is defined correctly.
 
 Unfortunately, my library just doesn't fit this use case. It's the same problem as `show . read`; GHC just can't infer a type in the middle.
 
+### I want to use different/custom values for named colors, but `webcolor-labels` provides pre-installed values. What should I do in that case?
+
+You can still use type-level parsing from `webcolor-labels` and build custom routing on top of that, but you have to lower that into values yourself.
+
 ## Contact info and acknowledgements
 
 If you have any questions, you can email me using `me@sandwitch.dev`. Alternatively, you can DM me on Matrix (`@root:sandwitch.dev`) or Telegram (`@sand_witch`).
